@@ -1,108 +1,53 @@
 #!/usr/bin/env python3
-
 import time
 import os
+import subprocess
 
-print()
-print("Riconoscimento sistema root in corso...\n")
-log = os.system("grep -om1 sudo $HOME/.bash_history > log")
-check = open("log", "r")
-root = check.read(4 - 0)
-if root == "sudo":
-    time.sleep(2)
-    print("Sistema riconosciuto Sudoers")
-    
-    time.sleep(1)
-    print()
-    print("Inizio sistema di aggiornamento\n")
-    print()
-    os.system("sudo apt-get update")
-    os.system("sudo apt-get upgrade -y")
+def print_with_delay(message, delay=1):
+    print(message)
+    time.sleep(delay)
 
-    # Installation library Deborphan
-    print()
-    print("Installatzione di Deborphan\n")
-    time.sleep(1)
-    print()
-    os.system("sudo apt-get install deborphan")
+def run_command(command, use_sudo=True):
+    if use_sudo:
+        full_command = f"sudo sh -c '{command}'"
+    else:
+        full_command = f"su -c '{command}'"
+    return subprocess.run(full_command, shell=True, text=True, capture_output=True)
 
-    # Apply Deborphan
-    time.sleep(1)
-    print()
-    print("Rimozione librerie non utilizzate\n")
-    print()
-    os.system("sudo deborphan | xargs sudo apt-get -y remove --purge")
-    
-    time.sleep(1)
-    print("Inizio sistema di pulizia\n")
-    print("Clean...")
-    print()
-    os.system("sudo apt-get clean")
-    print("Autoclean...")
-    print()
-    os.system("sudo apt-get autoclean")
-    print()
-    print("Autoremove...")
-    os.system("sudo apt-get autoremove")
+def clean_system(use_sudo):
+    commands = [
+        ("apt-get update", "Aggiornamento del sistema"),
+        ("apt-get upgrade -y", "Upgrade del sistema"),
+        ("apt-get install deborphan -y", "Installazione di Deborphan"),
+        ("deborphan | xargs apt-get -y remove --purge", "Rimozione librerie non utilizzate"),
+        ("apt-get clean", "Pulizia (clean)"),
+        ("apt-get autoclean", "Pulizia (autoclean)"),
+        ("apt-get autoremove -y", "Rimozione pacchetti non necessari"),
+        ("echo 3 > /proc/sys/vm/drop_caches && swapoff -a && swapon -a", "Riduzione uso RAM"),
+        ("rm -rf /home/*/.cache/*", "Pulizia Cache"),
+        ("rm -f /var/log/*.log /var/log/*.log.* /var/log/syslog* && truncate -s 0 /var/log/wtmp && truncate -s 0 /var/log/btmp", "Pulizia file di log")
+    ]
 
-    time.sleep(1)
-    print()
-    print("Riduzione uso RAM\n")
-    print()
-    os.system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches && swapoff -a && swapon -a'")
-    
-    time.sleep(1)
-    print()
-    print("Pulizia Cache\n")
-    print()
-    os.system("rm -rf ~/.cache/*")
+    for command, description in commands:
+        print_with_delay(f"\n{description}...")
+        result = run_command(command, use_sudo)
+        if result.returncode != 0:
+            print(f"Errore durante l'esecuzione di '{description}':")
+            print(result.stderr)
 
+def main():
+    print_with_delay("Riconoscimento sistema root in corso...\n", 2)
+    
+    use_sudo = os.system("sudo -n true 2>/dev/null") == 0
 
-else:
-    time.sleep(2)
-    print("Sistema riconosciuto Su")
-    
-    time.sleep(1)
-    print()
-    print("Inizio sistema di aggiornamento\n")
-    print()
-    os.system("su root -c 'apt-get update'")
-    os.system("su root -c 'apt-get upgrade -y'")
-    
-    # Installation library Deborphan
-    print()
-    print("Installatzione di Deborphan\n")
-    print()
-    time.sleep(1)
-    os.system("su root -c 'apt-get install deborphan'")
-    
-    # Apply Deborphan
-    time.sleep(1)
-    print()
-    print("Rimozione librerie non utilizzate\n")
-    print()
-    os.system("su root -c 'deborphan | xargs apt-get -y remove --purge'") 
-    
-    time.sleep(1)
-    print()
-    print("Inizio sistema di pulizia\n") 
-    print()                                                                                                                                                  
-    print("Clean...")
-    os.system("su root -c 'apt-get clean'")
-    print("Autoclean...")
-    os.system("su root -c 'apt-get autoclean'")
-    print("Autoremove...")
-    os.system("su root -c 'apt-get autoremove'")
-    
-    time.sleep(1)
-    print()
-    print("Riduzione uso RAM\n")
-    print()
-    os.system("su root -c 'echo 3 > /proc/sys/vm/drop_caches && swapoff -a && swapon -a'")
-    
-    time.sleep(1)
-    print()
-    print("Pulizia Cache\n")
-    print()
-    os.system("su root -c 'rm -rf ~/.cache/*'")
+    if use_sudo:
+        print_with_delay("Sistema riconosciuto Sudoers", 2)
+    else:
+        print_with_delay("Sistema riconosciuto Su", 2)
 
+    clean_system(use_sudo)
+
+    print_with_delay("\nOperazioni di pulizia e aggiornamento completate.", 2)
+
+if __name__ == "__main__":
+    main()
